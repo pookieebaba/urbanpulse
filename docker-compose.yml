@@ -1,0 +1,79 @@
+version: "3.9"
+
+services:
+
+  # ── PostgreSQL ──────────────────────────────────────────────────────────────
+  db:
+    image: postgres:16-alpine
+    container_name: urbanpulse_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: urbanpulse_dev
+      POSTGRES_USER: urbanpulse
+      POSTGRES_PASSWORD: urbanpulse
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U urbanpulse -d urbanpulse_dev"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Redis ───────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: urbanpulse_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # ── Flask API ───────────────────────────────────────────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: urbanpulse_api
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      FLASK_ENV: development
+      DATABASE_URL: postgresql://urbanpulse:urbanpulse@db:5432/urbanpulse_dev
+      REDIS_URL: redis://redis:6379/0
+      SECRET_KEY: change-this-in-production-abc123
+      JWT_SECRET_KEY: change-this-jwt-key-xyz789
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - .:/app            # live-reload in dev
+    command: >
+      sh -c "flask --app run.py db upgrade &&
+             python scripts/seed_db.py &&
+             python run.py"
+
+  # ── Sensor Simulator ────────────────────────────────────────────────────────
+  simulator:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: urbanpulse_simulator
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://urbanpulse:urbanpulse@db:5432/urbanpulse_dev
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      - api
+    command: python scripts/sensor_simulator.py --base-url http://api:5000 --interval 30
+
+volumes:
+  pgdata:
