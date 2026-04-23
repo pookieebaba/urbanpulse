@@ -1,3 +1,4 @@
+--only-binary=:all:
 # ── Web Framework ─────────────────────────────────────────────────────────────
 Flask==3.0.3
 flask-socketio==5.3.6
@@ -20,9 +21,9 @@ bcrypt==4.1.3
 
 # ── ML / Forecasting ─────────────────────────────────────────────────────────
 prophet==1.1.5
-scikit-learn==1.5.0
-pandas==2.2.2
+pandas==2.1.4
 numpy==1.26.4
+scikit-learn==1.3.2
 
 # ── HTTP / Utilities ─────────────────────────────────────────────────────────
 requests==2.32.3
